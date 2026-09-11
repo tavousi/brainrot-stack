@@ -36,6 +36,10 @@
 
         // menu
         document.getElementById('playBtn').addEventListener('click', function () {
+          if (window.BrainrotAudio) {
+            window.BrainrotAudio.init();
+            window.BrainrotAudio.startAmbient();
+          }
           document.getElementById('menu').classList.remove('show');
           game.hideGameOver();
           game.startMatch();
@@ -45,29 +49,62 @@
           game.startMatch();
         });
 
-        // tutorial modal
-        var slides = [
-          { t: '1/4 \u2014 DRAG', d: 'Drag left & right anywhere to aim the falling brainrot over the green platform.' },
-          { t: '2/4 \u2014 ROTATE', d: 'Tap the brainrot (or press \u27F3) to rotate it 45\u00B0 and find the best landing angle.' },
-          { t: '3/4 \u2014 DROP', d: 'Hit the red DROP button to release it. Then physics takes over!' },
-          { t: '4/4 \u2014 SURVIVE', d: 'Players alternate turns and the board flips to face each player. If ANY brainrot falls past the red line on your turn, you LOSE.' }
-        ];
+        // tutorial modal (slides come from the active language)
         var si = 0;
         var tut = document.getElementById('tutorial');
+        function slides() { return window.BrainrotLang.slides(); }
         function renderSlide() {
-          document.getElementById('tutStep').textContent = slides[si].t;
-          document.getElementById('tutText').textContent = slides[si].d;
+          var list = slides();
+          if (si >= list.length) si = list.length - 1;
+          document.getElementById('tutStep').textContent = list[si].t;
+          document.getElementById('tutText').textContent = list[si].d;
           document.getElementById('tutPrev').disabled = (si === 0);
-          document.getElementById('tutNext').textContent = (si === slides.length - 1) ? 'DONE' : 'NEXT';
+          document.getElementById('tutNext').textContent = (si === list.length - 1) ? window.BrainrotLang.t('done') : window.BrainrotLang.t('next');
         }
         document.getElementById('rulesBtn').addEventListener('click', function () { si = 0; renderSlide(); tut.classList.add('show'); });
         document.getElementById('tutPrev').addEventListener('click', function () { if (si > 0) { si--; renderSlide(); } });
         document.getElementById('tutNext').addEventListener('click', function () {
-          if (si < slides.length - 1) { si++; renderSlide(); } else tut.classList.remove('show');
+          if (si < slides().length - 1) { si++; renderSlide(); } else tut.classList.remove('show');
         });
         document.getElementById('tutClose').addEventListener('click', function () { tut.classList.remove('show'); });
 
+        // sound mute toggle (works before and during the match)
+        var muteBtn = document.getElementById('muteBtn');
+        if (muteBtn) muteBtn.addEventListener('click', function () {
+          if (!window.BrainrotAudio) return;
+          window.BrainrotAudio.init();
+          var m = window.BrainrotAudio.toggle();
+          muteBtn.innerHTML = m ? '&#128263;' : '&#128266;';
+        });
+
+        // language toggle EN <-> FA (+ RTL layout + live UI refresh)
+        // NOTE: the start menu is always bilingual (EN + FA shown together).
+        function applyLangUI() {
+          var L = window.BrainrotLang;
+          document.getElementById('howtoTitle').textContent = L.t('howto');
+          document.getElementById('tutPrev').textContent = L.t('back');
+          document.getElementById('tutClose').textContent = L.t('close');
+          document.getElementById('loading').innerHTML = L.t('loading');
+          document.getElementById('rulesBtn').title = L.t('rules');
+          document.getElementById('muteBtn').title = L.t('sound');
+          document.getElementById('rotateBtn').title = L.t('rotate');
+          var lbl = (L.get() === 'en') ? 'فارسی' : 'EN';
+          var lb = document.getElementById('langBtn');
+          if (lb) lb.textContent = lbl;
+          renderSlide();
+          game.updateHud();
+          if (game.state === 'GAMEOVER') game.showGameOver();
+        }
+        function toggleLang() {
+          window.BrainrotLang.toggle();
+          applyLangUI();
+        }
+        document.getElementById('langBtn').addEventListener('click', toggleLang);
+        var lbm = document.getElementById('langBtnMenu');
+        if (lbm) lbm.addEventListener('click', toggleLang);
+
         game.setState('MENU');
+        applyLangUI();
         document.getElementById('menu').classList.add('show');
         game.run();
       });

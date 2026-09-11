@@ -71,15 +71,23 @@
       g.beginPath(); g.arc(58 + (i % 3) * 2, 68, 6, 0, Math.PI * 2); g.arc(102 - (i % 3) * 2, 68, 6, 0, Math.PI * 2); g.fill();
       g.font = '44px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(faces[i], 80, 120);
-      out.push({ img: c, name: NAMES[i] + ' (fallback)', url: 'fallback:' + i, fallback: true });
+      out.push({ img: c, name: NAMES[i] + ' (fallback)', url: 'fallback:' + i, fallback: true, scale: 1 });
     }
     return out;
   }
 
+  // Per-character display scale: bigger fighters hit harder (and wobble more).
+  var SCALE = {
+    'characters/char2.png': 1.5,
+    'characters/char4.png': 1.5,
+    'characters/char9.png': 1.5,
+    'characters/char10.png': 0.85
+  };
+
   function loadAll() {
     var jobs = CANDIDATES.map(function (url, i) {
       return loadImage(url).then(function (img) {
-        return { img: img, name: NAMES[i] || ('Brainrot ' + (i + 1)), url: url, fallback: false };
+        return { img: img, name: NAMES[i] || ('Brainrot ' + (i + 1)), url: url, fallback: false, scale: SCALE[url] || 1 };
       }).catch(function () { return null; });
     });
     return Promise.all(jobs).then(function (results) {

@@ -4,9 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Brainrot Stack</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="apple-touch-icon" href="favicon.svg" />
+<meta name="theme-color" content="#fde9ef" />
+<meta name="description" content="Brainrot Stack — a 2-player pass-and-play physics stacking game. Drop brainrots, don't drop them off!" />
 <link rel="stylesheet" href="style.css" />
 <script src="vendor/matter.min.js"></script>
 <script src="js/assets.js"></script>
+<script src="js/lang.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/physics.js"></script>
 <script src="js/input.js"></script>
 <script src="js/game.js"></script>
@@ -16,7 +22,10 @@
 <div id="app">
   <div id="hud">
     <div id="turnPill" class="turn-pill blue">READY?</div>
+    <div id="towerLabel" class="tower-pill">TOWER 0/5</div>
     <div id="roundLabel">ROUND 1</div>
+    <button id="langBtn" class="mute-btn" title="Language / زبان">&#127760; فارسی</button>
+    <button id="muteBtn" class="mute-btn" title="Sound on/off">&#128266;</button>
   </div>
   <div id="stageWrap">
     <canvas id="stage"></canvas>
@@ -31,22 +40,27 @@
   <div id="menu" class="overlay">
     <div class="card">
       <h1>BRAINROT<br />STACK</h1>
-      <p class="desc">Take turns dropping brainrots. First player to drop a brainrots off the platform loses, so take care to drag left &amp; right, and tap to rotate before you drop.</p>
+      <div class="subtitle">برین‌رات استک • بازی ۲ نفره • 2-player game</div>
+      <p class="desc">Take turns dropping brainrots. First player to drop a brainrots off the platform loses — drag left &amp; right to aim, tap to rotate, then DROP. Tower holds max 5 brainrots!</p>
+      <p class="desc fa" dir="rtl">نوبتی برین‌رات بنداز! اولین نفری که برین‌رتی از سکو بیفته می‌بازه؛ با کشیدن چپ و راست aim کن، با ضربه بچرخون، بعد بنداز. برج فقط ۵ برین‌رات نگه می‌دارد!</p>
       <div class="avatars">
-        <div class="avatar blue"><span class="face">&#128121;</span><span class="pname">PLAYER 1</span></div>
+        <div class="avatar blue"><span class="face">&#128121;</span><span class="pname">PLAYER 1 • بازیکن ۱</span></div>
         <div class="vs">VS</div>
-        <div class="avatar red"><span class="face">&#128127;</span><span class="pname">PLAYER 2</span></div>
+        <div class="avatar red"><span class="face">&#128127;</span><span class="pname">PLAYER 2 • بازیکن ۲</span></div>
       </div>
       <div class="row">
-        <button id="playBtn" class="btn primary">PLAY</button>
-        <button id="rulesBtn" class="btn ghost" title="Rules">?</button>
+        <button id="playBtn" class="btn primary">PLAY / بازی</button>
+        <button id="rulesBtn" class="btn ghost" title="Rules / راهنما">?</button>
+      </div>
+      <div class="row">
+        <button id="langBtnMenu" class="btn ghost small">🌐 EN / فارسی</button>
       </div>
     </div>
   </div>
 
   <div id="tutorial" class="overlay">
     <div class="card small">
-      <h2>HOW TO PLAY</h2>
+      <h2 id="howtoTitle">HOW TO PLAY</h2>
       <div id="tutStep" class="tut-step">1/4</div>
       <p id="tutText" class="desc"></p>
       <div class="row">
@@ -67,6 +81,7 @@
         <div class="go-rank">RANK 2</div>
         <div class="go-name">RED</div>
       </div>
+      <div id="goReason" class="go-reason"></div>
       <button id="rematchBtn" class="btn primary big">REMATCH / PLAY AGAIN</button>
     </div>
   </div>

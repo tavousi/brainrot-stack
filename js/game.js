@@ -9,6 +9,7 @@
   var ROT_STEP = Math.PI / 4; // 45 deg
   var REST_NEED = 50;         // frames below threshold
   var SETTLE_TIMEOUT = 11000; // ms fallback
+  var MAX_STACK = 5;          // tower collapses if more brainrots stay stacked
 
   function Game(canvas, sprites) {
     this.canvas = canvas;
@@ -23,9 +24,27 @@
     this.restFrames = 0;
     this.dropTime = 0;
     this.winner = null; this.loser = null;
+    this.overReason = 'fell';
+    this.wobTick = 0;
     this.acc = 0; this.lastTs = 0;
     this.fitCanvas();
     window.addEventListener('resize', this.fitCanvas.bind(this));
+    // landing knocks scaled by impact
+    try {
+      var self = this;
+      window.Matter.Events.on(this.physics.engine, 'collisionStart', function (ev) {
+        if (!window.BrainrotAudio) return;
+        for (var i = 0; i < ev.pairs.length; i++) {
+          var p = ev.pairs[i];
+          if (p.bodyA.label !== 'piece' && p.bodyB.label !== 'piece') continue;
+          var rv = Math.hypot(
+            p.bodyA.velocity.x - p.bodyB.velocity.x,
+            p.bodyA.velocity.y - p.bodyB.velocity.y
+          );
+          if (rv > 2.2) window.BrainrotAudio.thud(Math.min(1, rv / 10));
+        }
+      });
+    } catch (e) {}
   }
 
   Game.prototype.fitCanvas = function () {
@@ -52,6 +71,8 @@
     this.turn = 'blue';
     this.round = 1;
     this.winner = null; this.loser = null;
+    this.overReason = 'fell';
+    this.wobTick = 0;
     this.spawnPreview();
     this.setState('AIMING');
     this.updateHud();
@@ -59,7 +80,8 @@
 
   Game.prototype.spawnPreview = function () {
     var sprite = this.pickSprite();
-    var size = 70 + Math.random() * 16;
+    var sc = (sprite && sprite.scale) || 1;
+    var size = (70 + Math.random() * 16) * sc;
     this.preview = { sprite: sprite, x: W / 2, y: PREVIEW_Y, angle: 0, size: size, bornAt: performance.now() };
     this.restFrames = 0;
   };
@@ -83,6 +105,7 @@
   Game.prototype.rotatePreview = function () {
     if (!this.isAiming() || !this.preview) return;
     this.preview.angle += ROT_STEP;
+    if (window.BrainrotAudio) window.BrainrotAudio.rotate();
   };
 
   Game.prototype.tryTapRotate = function (x, y) {
@@ -99,6 +122,7 @@
     this.preview = null;
     this.dropTime = performance.now();
     this.restFrames = 0;
+    if (window.BrainrotAudio) window.BrainrotAudio.drop();
     this.setState('FALLING');
   };
 
@@ -109,27 +133,57 @@
     this.setState('AIMING');
   };
 
-  Game.prototype.endGame = function (killedBody) {
+  Game.prototype.endGame = function (killedBody, reason) {
     void killedBody;
     this.loser = this.turn;
     this.winner = (this.turn === 'blue') ? 'red' : 'blue';
+    this.overReason = reason || 'fell';
+    if (window.BrainrotAudio) { window.BrainrotAudio.lose(); window.BrainrotAudio.win(); }
     this.setState('GAMEOVER');
     this.showGameOver();
   };
 
+  // brainrots still on the platform (not past the kill line)
+  Game.prototype.aliveCount = function () {
+    var n = 0;
+    for (var i = 0; i < this.physics.pieces.length; i++) {
+      if (this.physics.pieces[i].position.y - 20 <= KILL_Y) n++;
+    }
+    return n;
+  };
+
   Game.prototype.updateHud = function () {
+    var L = window.BrainrotLang;
+    var t = function (k, a) { return L ? L.t(k, a) : k; };
     var pill = document.getElementById('turnPill');
     if (pill) {
       pill.className = 'turn-pill ' + this.turn;
-      pill.textContent = this.state === 'GAMEOVER' ? 'GAME OVER'
-        : this.state === 'MENU' ? 'READY?'
-        : (this.turn === 'blue' ? 'BLUE TURN' : 'RED TURN');
+      pill.textContent = this.state === 'GAMEOVER' ? t('gameOver')
+        : this.state === 'MENU' ? t('ready')
+        : (this.turn === 'blue' ? t('blueTurn') : t('redTurn'));
     }
     var round = document.getElementById('roundLabel');
-    if (round) round.textContent = 'ROUND ' + this.round;
+    if (round) round.textContent = t('round', this.round);
     var dropBtn = document.getElementById('dropBtn');
-    if (dropBtn) dropBtn.disabled = (this.state !== 'AIMING');
-    this.applyOrientation();
+    if (dropBtn) {
+      dropBtn.disabled = (this.state !== 'AIMING');
+      dropBtn.classList.toggle('blue', this.turn === 'blue');
+      dropBtn.textContent = t('drop');
+    }
+    var tw = document.getElementById('towerLabel');
+    if (tw) this.refreshTower();
+  };
+
+  // live tower counter (throttled: only touches the DOM when the count changes)
+  Game.prototype.refreshTower = function () {
+    var tw = document.getElementById('towerLabel');
+    if (!tw) return;
+    var n = this.aliveCount();
+    if (n === this._lastTowerN && this.state === this._lastTowerS) return;
+    this._lastTowerN = n; this._lastTowerS = this.state;
+    var L = window.BrainrotLang;
+    tw.textContent = L ? L.t('tower', { n: n, m: MAX_STACK }) : ('TOWER ' + n + '/' + MAX_STACK);
+    tw.classList.toggle('warn', n >= MAX_STACK && this.state !== 'GAMEOVER');
   };
 
   // Pass-and-play: flip the board so each player faces it from their own side.
@@ -142,13 +196,19 @@
   };
 
   Game.prototype.showGameOver = function () {
+    var L = window.BrainrotLang;
+    var t = function (k, a) { return L ? L.t(k, a) : k; };
     var ov = document.getElementById('gameover');
     var wTop = document.getElementById('winnerTop');
     var wBot = document.getElementById('winnerBottom');
-    var wt = this.winner === 'blue' ? 'BLUE' : 'RED';
-    var lt = this.loser === 'blue' ? 'BLUE' : 'RED';
-    if (wTop) { wTop.className = 'go-half go-winner ' + this.winner; wTop.querySelector('.go-rank').textContent = 'RANK 1 \u2022 WINNER'; wTop.querySelector('.go-name').textContent = wt + ' WINS'; }
-    if (wBot) { wBot.className = 'go-half go-loser ' + this.loser; wBot.querySelector('.go-rank').textContent = 'RANK 2'; wBot.querySelector('.go-name').textContent = lt; }
+    var wt = this.winner === 'blue' ? t('winBlue') : t('winRed');
+    var lt = this.loser === 'blue' ? t('nameBlue') : t('nameRed');
+    if (wTop) { wTop.className = 'go-half go-winner ' + this.winner; wTop.querySelector('.go-rank').textContent = t('rank1'); wTop.querySelector('.go-name').textContent = wt; }
+    if (wBot) { wBot.className = 'go-half go-loser ' + this.loser; wBot.querySelector('.go-rank').textContent = t('rank2'); wBot.querySelector('.go-name').textContent = lt; }
+    var rm = document.getElementById('rematchBtn');
+    if (rm) rm.textContent = t('rematch');
+    var gr = document.getElementById('goReason');
+    if (gr) gr.textContent = t(this.overReason === 'overload' ? 'reasonOverload' : 'reasonFell');
     if (ov) ov.classList.add('show');
     this.updateHud();
   };
@@ -174,18 +234,37 @@
         if (killed) { this.endGame(killed); break; }
       }
       if (this.state === 'FALLING' || this.state === 'SETTLING') {
+        // overloaded tower wobbles: random nudges while 5+ are stacked
+        if (this.aliveCount() >= MAX_STACK) {
+          this.wobTick++;
+          if (this.wobTick % 25 === 0 && this.physics.pieces.length) {
+            var target = this.physics.pieces[Math.floor(Math.random() * this.physics.pieces.length)];
+            try {
+              window.Matter.Body.applyForce(target, target.position, {
+                x: (Math.random() - 0.5) * 0.003 * target.mass,
+                y: -0.0006 * target.mass
+              });
+            } catch (e) {}
+          }
+        }
         if (this.physics.allAtRest()) {
           this.restFrames++;
           if (this.state === 'FALLING' && this.restFrames > 10) this.setState('SETTLING');
-          if (this.restFrames >= REST_NEED) this.nextTurn();
+          if (this.restFrames >= REST_NEED) {
+            if (this.aliveCount() > MAX_STACK) this.endGame(null, 'overload');
+            else this.nextTurn();
+          }
         } else {
           this.restFrames = 0;
           if (this.state === 'FALLING') this.setState('SETTLING');
         }
         if (performance.now() - this.dropTime > SETTLE_TIMEOUT) {
           var k2 = this.physics.firstKilled(KILL_Y);
-          if (k2) this.endGame(k2); else this.nextTurn();
+          if (k2) this.endGame(k2);
+          else if (this.aliveCount() > MAX_STACK) this.endGame(null, 'overload');
+          else this.nextTurn();
         }
+        this.refreshTower();
       }
     }
     this.render();
@@ -224,8 +303,8 @@
     g.beginPath(); g.moveTo(10, KILL_Y); g.lineTo(W - 10, KILL_Y); g.stroke();
     g.setLineDash([]);
     g.fillStyle = 'rgba(230,30,60,0.7)';
-    g.font = 'bold 11px system-ui, sans-serif'; g.textAlign = 'center';
-    g.fillText('DROP = LOSE', W / 2, KILL_Y + 16);
+    g.font = 'bold 11px system-ui, Tahoma, sans-serif'; g.textAlign = 'center';
+    g.fillText(window.BrainrotLang ? window.BrainrotLang.t('killLine') : 'DROP = LOSE', W / 2, KILL_Y + 16);
     g.restore();
     // stacked bodies
     var pieces = this.physics.pieces;
@@ -240,10 +319,6 @@
       try {
         g.drawImage(this.preview.sprite.img, -s / 2, -s / 2, s, s);
       } catch (e) {}
-      g.globalAlpha = 1;
-      g.strokeStyle = '#111'; g.lineWidth = 2; g.setLineDash([6, 5]);
-      g.strokeRect(-s / 2 - 3, -s / 2 - 3, s + 6, s + 6);
-      g.setLineDash([]);
       g.restore();
       // character name: blink briefly below the preview, then hide
       var now = performance.now();
