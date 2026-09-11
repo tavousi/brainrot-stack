@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Brainrot Stack</title>
+<link rel="stylesheet" href="style.css" />
+<script src="vendor/matter.min.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/input.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</head>
+<body data-state="menu">
+<div id="app">
+  <div id="hud">
+    <div id="turnPill" class="turn-pill blue">READY?</div>
+    <div id="roundLabel">ROUND 1</div>
+  </div>
+  <div id="stageWrap">
+    <canvas id="stage"></canvas>
+    <div id="sideBtns">
+      <button id="rotateBtn" class="round-btn small" title="Rotate">&#10227;</button>
+      <button id="dropBtn" class="round-btn drop" disabled>DROP</button>
+    </div>
+    <div id="loading">LOADING BRAINROTS&hellip;</div>
+    <div id="loadError" style="display:none"></div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>BRAINROT<br />STACK</h1>
+      <p class="desc">Take turns dropping brainrots. First player to drop a brainrots off the platform loses, so take care to drag left &amp; right, and tap to rotate before you drop.</p>
+      <div class="avatars">
+        <div class="avatar blue"><span class="face">&#128121;</span><span class="pname">PLAYER 1</span></div>
+        <div class="vs">VS</div>
+        <div class="avatar red"><span class="face">&#128127;</span><span class="pname">PLAYER 2</span></div>
+      </div>
+      <div class="row">
+        <button id="playBtn" class="btn primary">PLAY</button>
+        <button id="rulesBtn" class="btn ghost" title="Rules">?</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tutorial" class="overlay">
+    <div class="card small">
+      <h2>HOW TO PLAY</h2>
+      <div id="tutStep" class="tut-step">1/4</div>
+      <p id="tutText" class="desc"></p>
+      <div class="row">
+        <button id="tutPrev" class="btn ghost">BACK</button>
+        <button id="tutNext" class="btn primary">NEXT</button>
+      </div>
+      <button id="tutClose" class="link">close</button>
+    </div>
+  </div>
+
+  <div id="gameover" class="overlay">
+    <div class="go-wrap">
+      <div id="winnerTop" class="go-half go-winner blue">
+        <div class="go-rank">RANK 1 &bull; WINNER</div>
+        <div class="go-name">BLUE WINS</div>
+      </div>
+      <div id="winnerBottom" class="go-half go-loser red">
+        <div class="go-rank">RANK 2</div>
+        <div class="go-name">RED</div>
+      </div>
+      <button id="rematchBtn" class="btn primary big">REMATCH / PLAY AGAIN</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
